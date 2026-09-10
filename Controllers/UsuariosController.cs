@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using PotyInternosAPI.DTOs.Aplicacoes;
 using PotyInternosAPI.DTOs.Usuarios;
 using PotyInternosAPI.Services.Interfaces;
@@ -68,9 +69,19 @@ public class UsuariosController : ControllerBase
     }
 
     [HttpPost("{usuarioId}/aplicacoes/{aplicacaoId}")]
-    public async Task<IActionResult> VincularAplicacao(string usuarioId, string aplicacaoId)
+    public async Task<IActionResult> VincularAplicacao(
+        string usuarioId,
+        string aplicacaoId,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] VincularAplicacaoDto? dto = null)
     {
-        await _service.VincularAplicacaoAsync(usuarioId, aplicacaoId);
+        await _service.VincularAplicacaoAsync(usuarioId, aplicacaoId, dto);
+        return NoContent();
+    }
+
+    [HttpPut("{usuarioId}/aplicacoes/{aplicacaoId}/campos-adicionais")]
+    public async Task<IActionResult> AtualizarCamposAplicacao(string usuarioId, string aplicacaoId, [FromBody] AtualizarCamposAplicacaoDto dto)
+    {
+        await _service.AtualizarCamposAplicacaoAsync(usuarioId, aplicacaoId, dto);
         return NoContent();
     }
 

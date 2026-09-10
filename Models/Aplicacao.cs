@@ -8,5 +8,7 @@ public class Aplicacao
 
     public bool Status { get; set; }
 
+    public virtual ICollection<AplicacaoCampoAdicional> CamposAdicionais { get; set; } = new List<AplicacaoCampoAdicional>();
+
     public virtual ICollection<UsuariosAplicacao> UsuariosAplicacoes { get; set; } = new List<UsuariosAplicacao>();
 }

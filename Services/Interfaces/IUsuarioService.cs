@@ -13,6 +13,7 @@ public interface IUsuarioService
     Task DeleteAsync(string id);
 
     Task<IEnumerable<AplicacaoResponseDto>> GetAplicacoesAsync(string usuarioId);
-    Task VincularAplicacaoAsync(string usuarioId, string aplicacaoId);
+    Task VincularAplicacaoAsync(string usuarioId, string aplicacaoId, VincularAplicacaoDto? dto = null);
+    Task AtualizarCamposAplicacaoAsync(string usuarioId, string aplicacaoId, AtualizarCamposAplicacaoDto dto);
     Task DesvincularAplicacaoAsync(string usuarioId, string aplicacaoId);
 }

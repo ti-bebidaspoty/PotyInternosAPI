@@ -65,7 +65,24 @@ public class UsuarioService : IUsuarioService
                     {
                         AplicacaoId = ua.Aplicacao.AplicacaoId,
                         Aplicacao = ua.Aplicacao.Nome,
-                        Status = ua.Aplicacao.Status
+                        Status = ua.Aplicacao.Status,
+                        CamposAdicionais = ua.Aplicacao.CamposAdicionais
+                            .OrderBy(c => c.Ordem)
+                            .Select(c => new AplicacaoCampoAdicionalResponseDto
+                            {
+                                CampoAdicionalId = c.CampoAdicionalId,
+                                Nome = c.Nome,
+                                Tipo = c.Tipo,
+                                Ordem = c.Ordem
+                            })
+                            .ToList(),
+                        ValoresCamposAdicionais = ua.CamposAdicionaisValores
+                            .Select(v => new AplicacaoCampoAdicionalValorDto
+                            {
+                                CampoAdicionalId = v.CampoAdicionalId,
+                                Valor = v.Valor
+                            })
+                            .ToList()
                     })
                     .ToList()
             })
@@ -198,12 +215,29 @@ public class UsuarioService : IUsuarioService
             {
                 AplicacaoId = ua.Aplicacao.AplicacaoId,
                 Aplicacao = ua.Aplicacao.Nome,
-                Status = ua.Aplicacao.Status
+                Status = ua.Aplicacao.Status,
+                CamposAdicionais = ua.Aplicacao.CamposAdicionais
+                    .OrderBy(c => c.Ordem)
+                    .Select(c => new AplicacaoCampoAdicionalResponseDto
+                    {
+                        CampoAdicionalId = c.CampoAdicionalId,
+                        Nome = c.Nome,
+                        Tipo = c.Tipo,
+                        Ordem = c.Ordem
+                    })
+                    .ToList(),
+                ValoresCamposAdicionais = ua.CamposAdicionaisValores
+                    .Select(v => new AplicacaoCampoAdicionalValorDto
+                    {
+                        CampoAdicionalId = v.CampoAdicionalId,
+                        Valor = v.Valor
+                    })
+                    .ToList()
             })
             .ToListAsync();
     }
 
-    public async Task VincularAplicacaoAsync(string usuarioId, string aplicacaoId)
+    public async Task VincularAplicacaoAsync(string usuarioId, string aplicacaoId, VincularAplicacaoDto? dto = null)
     {
         var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.UsuarioId == usuarioId)
             ?? throw new NotFoundException($"Usuário '{usuarioId}' não encontrado.");
@@ -213,7 +247,9 @@ public class UsuarioService : IUsuarioService
             throw new ValidationException("O usuário informado está inativo.");
         }
 
-        var aplicacao = await _context.Aplicacoes.FirstOrDefaultAsync(a => a.AplicacaoId == aplicacaoId)
+        var aplicacao = await _context.Aplicacoes
+            .Include(a => a.CamposAdicionais)
+            .FirstOrDefaultAsync(a => a.AplicacaoId == aplicacaoId)
             ?? throw new NotFoundException($"Aplicação '{aplicacaoId}' não encontrada.");
 
         if (!aplicacao.Status)
@@ -229,22 +265,91 @@ public class UsuarioService : IUsuarioService
             throw new ConflictException("O vínculo entre usuário e aplicação já existe.");
         }
 
-        await _context.UsuariosAplicacoes.AddAsync(new UsuariosAplicacao
+        var vinculo = new UsuariosAplicacao
         {
             UsuarioId = usuarioId,
-            AplicacaoId = aplicacaoId
-        });
+            AplicacaoId = aplicacaoId,
+            CamposAdicionaisValores = MontarValoresCampos(usuarioId, aplicacao, dto?.CamposAdicionais ?? new())
+        };
 
+        await _context.UsuariosAplicacoes.AddAsync(vinculo);
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task AtualizarCamposAplicacaoAsync(string usuarioId, string aplicacaoId, AtualizarCamposAplicacaoDto dto)
+    {
+        var vinculo = await _context.UsuariosAplicacoes
+            .Include(ua => ua.Aplicacao)
+                .ThenInclude(a => a.CamposAdicionais)
+            .Include(ua => ua.CamposAdicionaisValores)
+            .FirstOrDefaultAsync(ua => ua.UsuarioId == usuarioId && ua.AplicacaoId == aplicacaoId)
+            ?? throw new NotFoundException("Vínculo entre usuário e aplicação não encontrado.");
+
+        var novosValores = MontarValoresCampos(usuarioId, vinculo.Aplicacao, dto.CamposAdicionais);
+
+        _context.UsuariosAplicacoesCamposAdicionaisValores.RemoveRange(vinculo.CamposAdicionaisValores);
+        await _context.UsuariosAplicacoesCamposAdicionaisValores.AddRangeAsync(novosValores);
         await _context.SaveChangesAsync();
     }
 
     public async Task DesvincularAplicacaoAsync(string usuarioId, string aplicacaoId)
     {
         var vinculo = await _context.UsuariosAplicacoes
+            .Include(ua => ua.CamposAdicionaisValores)
             .FirstOrDefaultAsync(ua => ua.UsuarioId == usuarioId && ua.AplicacaoId == aplicacaoId)
             ?? throw new NotFoundException("Vínculo entre usuário e aplicação não encontrado.");
 
+        _context.UsuariosAplicacoesCamposAdicionaisValores.RemoveRange(vinculo.CamposAdicionaisValores);
         _context.UsuariosAplicacoes.Remove(vinculo);
         await _context.SaveChangesAsync();
+    }
+
+    private static List<UsuarioAplicacaoCampoAdicionalValor> MontarValoresCampos(
+        string usuarioId,
+        Aplicacao aplicacao,
+        List<AplicacaoCampoAdicionalValorDto> valoresInformados)
+    {
+        var valoresPorCampo = new Dictionary<string, object?>();
+        foreach (var valor in valoresInformados.Where(v => !string.IsNullOrWhiteSpace(v.CampoAdicionalId)))
+        {
+            if (!valoresPorCampo.TryAdd(valor.CampoAdicionalId, valor.Valor))
+            {
+                throw new ConflictException($"O campo adicional '{valor.CampoAdicionalId}' foi informado mais de uma vez.");
+            }
+        }
+
+        var valores = new List<UsuarioAplicacaoCampoAdicionalValor>();
+        var camposDaAplicacao = aplicacao.CamposAdicionais.Select(c => c.CampoAdicionalId).ToHashSet();
+        var campoDesconhecido = valoresPorCampo.Keys.FirstOrDefault(campoId => !camposDaAplicacao.Contains(campoId));
+        if (campoDesconhecido is not null)
+        {
+            throw new ValidationException($"O campo adicional '{campoDesconhecido}' não pertence à aplicação '{aplicacao.AplicacaoId}'.");
+        }
+
+        foreach (var campo in aplicacao.CamposAdicionais.OrderBy(c => c.Ordem))
+        {
+            valoresPorCampo.TryGetValue(campo.CampoAdicionalId, out var valorInformado);
+
+            string valorNormalizado;
+            try
+            {
+                valorNormalizado = AplicacaoService.NormalizarValor(campo.Tipo, valorInformado);
+            }
+            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+            {
+                throw new ValidationException($"Valor inválido para o campo adicional '{campo.Nome}' ({campo.Tipo}).");
+            }
+
+            valores.Add(new UsuarioAplicacaoCampoAdicionalValor
+            {
+                UsuarioId = usuarioId,
+                AplicacaoId = aplicacao.AplicacaoId,
+                CampoAdicionalId = campo.CampoAdicionalId,
+                Valor = valorNormalizado
+            });
+        }
+
+        return valores;
     }
 }
