@@ -1,16 +1,14 @@
 namespace PotyInternosAPI.Models;
 
-public class Departamento
+public class Empresa
 {
-    public string DepartamentoId { get; set; } = null!;
+    public string EmpresaId { get; set; } = null!;
 
     public string Nome { get; set; } = null!;
 
-    public string AreaId { get; set; } = null!;
+    public string CodigoAlternativo { get; set; } = null!;
 
     public bool Status { get; set; }
-
-    public virtual Area Area { get; set; } = null!;
 
     public virtual ICollection<Usuario> Usuarios { get; set; } = new List<Usuario>();
 }

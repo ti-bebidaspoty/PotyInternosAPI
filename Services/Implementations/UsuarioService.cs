@@ -25,6 +25,7 @@ public class UsuarioService : IUsuarioService
         var query = _context.Usuarios
             .AsNoTracking()
             .Include(u => u.Departamento)
+            .Include(u => u.Empresa)
             .AsQueryable();
 
         if (!includeInactive)
@@ -40,6 +41,8 @@ public class UsuarioService : IUsuarioService
                 Usuario = u.NomeUsuario,
                 DepartamentoId = u.DepartamentoId,
                 Departamento = u.Departamento.Nome,
+                EmpresaId = u.EmpresaId,
+                Empresa = u.Empresa.Nome,
                 Status = u.Status,
                 IsAdmin = u.IsAdmin
             })
@@ -58,6 +61,8 @@ public class UsuarioService : IUsuarioService
                 Usuario = u.NomeUsuario,
                 DepartamentoId = u.DepartamentoId,
                 Departamento = u.Departamento.Nome,
+                EmpresaId = u.EmpresaId,
+                Empresa = u.Empresa.Nome,
                 Status = u.Status,
                 IsAdmin = u.IsAdmin,
                 Aplicacoes = u.UsuariosAplicacoes
@@ -100,6 +105,15 @@ public class UsuarioService : IUsuarioService
             throw new ValidationException("O departamento informado está inativo.");
         }
 
+        var empresa = await _context.Empresas
+            .FirstOrDefaultAsync(e => e.EmpresaId == dto.EmpresaId)
+            ?? throw new ValidationException($"Empresa '{dto.EmpresaId}' não existe.");
+
+        if (!empresa.Status)
+        {
+            throw new ValidationException("A empresa informada está inativa.");
+        }
+
         var nomeUsuarioEmUso = await _context.Usuarios
             .AnyAsync(u => u.NomeUsuario == dto.Usuario);
 
@@ -114,6 +128,7 @@ public class UsuarioService : IUsuarioService
             Nome = dto.Nome,
             NomeUsuario = dto.Usuario,
             DepartamentoId = dto.DepartamentoId,
+            EmpresaId = dto.EmpresaId,
             Status = true,
             IsAdmin = dto.IsAdmin
         };
@@ -130,6 +145,8 @@ public class UsuarioService : IUsuarioService
             Usuario = entity.NomeUsuario,
             DepartamentoId = entity.DepartamentoId,
             Departamento = departamento.Nome,
+            EmpresaId = entity.EmpresaId,
+            Empresa = empresa.Nome,
             Status = entity.Status,
             IsAdmin = entity.IsAdmin
         };
@@ -149,6 +166,15 @@ public class UsuarioService : IUsuarioService
             throw new ValidationException("O departamento informado está inativo.");
         }
 
+        var empresa = await _context.Empresas
+            .FirstOrDefaultAsync(e => e.EmpresaId == dto.EmpresaId)
+            ?? throw new ValidationException($"Empresa '{dto.EmpresaId}' não existe.");
+
+        if (!empresa.Status)
+        {
+            throw new ValidationException("A empresa informada está inativa.");
+        }
+
         var nomeUsuarioEmUso = await _context.Usuarios
             .AnyAsync(u => u.NomeUsuario == dto.Usuario && u.UsuarioId != id);
 
@@ -160,6 +186,7 @@ public class UsuarioService : IUsuarioService
         entity.Nome = dto.Nome;
         entity.NomeUsuario = dto.Usuario;
         entity.DepartamentoId = dto.DepartamentoId;
+        entity.EmpresaId = dto.EmpresaId;
         entity.Status = dto.Status;
         entity.IsAdmin = dto.IsAdmin;
 
@@ -177,6 +204,8 @@ public class UsuarioService : IUsuarioService
             Usuario = entity.NomeUsuario,
             DepartamentoId = entity.DepartamentoId,
             Departamento = departamento.Nome,
+            EmpresaId = entity.EmpresaId,
+            Empresa = empresa.Nome,
             Status = entity.Status,
             IsAdmin = entity.IsAdmin
         };

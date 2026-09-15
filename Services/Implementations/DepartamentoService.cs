@@ -18,7 +18,10 @@ public class DepartamentoService : IDepartamentoService
 
     public async Task<IEnumerable<DepartamentoResponseDto>> GetAllAsync(bool includeInactive = false)
     {
-        var query = _context.Departamentos.AsNoTracking();
+        var query = _context.Departamentos
+            .AsNoTracking()
+            .Include(d => d.Area)
+            .AsQueryable();
 
         if (!includeInactive)
         {
@@ -30,6 +33,8 @@ public class DepartamentoService : IDepartamentoService
             {
                 DepartamentoId = d.DepartamentoId,
                 Departamento = d.Nome,
+                AreaId = d.AreaId,
+                Area = d.Area.Nome,
                 Status = d.Status
             })
             .ToListAsync();
@@ -44,6 +49,8 @@ public class DepartamentoService : IDepartamentoService
             {
                 DepartamentoId = d.DepartamentoId,
                 Departamento = d.Nome,
+                AreaId = d.AreaId,
+                Area = d.Area.Nome,
                 Status = d.Status
             })
             .FirstOrDefaultAsync();
@@ -51,6 +58,14 @@ public class DepartamentoService : IDepartamentoService
 
     public async Task<DepartamentoResponseDto> CreateAsync(DepartamentoCreateDto dto)
     {
+        var area = await _context.Areas.FirstOrDefaultAsync(a => a.AreaId == dto.AreaId)
+            ?? throw new ValidationException($"Área '{dto.AreaId}' não existe.");
+
+        if (!area.Status)
+        {
+            throw new ValidationException("A área informada está inativa.");
+        }
+
         var nomeEmUso = await _context.Departamentos
             .AnyAsync(d => d.Nome == dto.Departamento);
 
@@ -63,6 +78,7 @@ public class DepartamentoService : IDepartamentoService
         {
             DepartamentoId = Guid.NewGuid().ToString(),
             Nome = dto.Departamento,
+            AreaId = dto.AreaId,
             Status = true
         };
 
@@ -73,6 +89,8 @@ public class DepartamentoService : IDepartamentoService
         {
             DepartamentoId = entity.DepartamentoId,
             Departamento = entity.Nome,
+            AreaId = entity.AreaId,
+            Area = area.Nome,
             Status = entity.Status
         };
     }
@@ -81,6 +99,14 @@ public class DepartamentoService : IDepartamentoService
     {
         var entity = await _context.Departamentos.FirstOrDefaultAsync(d => d.DepartamentoId == id)
             ?? throw new NotFoundException($"Departamento '{id}' não encontrado.");
+
+        var area = await _context.Areas.FirstOrDefaultAsync(a => a.AreaId == dto.AreaId)
+            ?? throw new ValidationException($"Área '{dto.AreaId}' não existe.");
+
+        if (!area.Status)
+        {
+            throw new ValidationException("A área informada está inativa.");
+        }
 
         var nomeEmUso = await _context.Departamentos
             .AnyAsync(d => d.Nome == dto.Departamento && d.DepartamentoId != id);
@@ -91,6 +117,7 @@ public class DepartamentoService : IDepartamentoService
         }
 
         entity.Nome = dto.Departamento;
+        entity.AreaId = dto.AreaId;
         entity.Status = dto.Status;
 
         await _context.SaveChangesAsync();
@@ -99,6 +126,8 @@ public class DepartamentoService : IDepartamentoService
         {
             DepartamentoId = entity.DepartamentoId,
             Departamento = entity.Nome,
+            AreaId = entity.AreaId,
+            Area = area.Nome,
             Status = entity.Status
         };
     }

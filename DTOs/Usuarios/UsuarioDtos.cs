@@ -10,6 +10,8 @@ public class UsuarioResponseDto
     public string Usuario { get; set; } = null!;
     public string DepartamentoId { get; set; } = null!;
     public string? Departamento { get; set; }
+    public string EmpresaId { get; set; } = null!;
+    public string? Empresa { get; set; }
     public bool Status { get; set; }
     public bool IsAdmin { get; set; }
     public List<AplicacaoResponseDto> Aplicacoes { get; set; } = new();
@@ -33,6 +35,10 @@ public class UsuarioCreateDto
     [MaxLength(50)]
     public string DepartamentoId { get; set; } = null!;
 
+    [Required]
+    [MaxLength(50)]
+    public string EmpresaId { get; set; } = null!;
+
     public bool IsAdmin { get; set; }
 }
 
@@ -49,6 +55,10 @@ public class UsuarioUpdateDto
     [Required]
     [MaxLength(50)]
     public string DepartamentoId { get; set; } = null!;
+
+    [Required]
+    [MaxLength(50)]
+    public string EmpresaId { get; set; } = null!;
 
     public bool Status { get; set; }
 

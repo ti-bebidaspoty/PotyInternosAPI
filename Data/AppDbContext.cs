@@ -12,6 +12,10 @@ public class AppDbContext : DbContext
 
     public virtual DbSet<Departamento> Departamentos { get; set; } = null!;
 
+    public virtual DbSet<Area> Areas { get; set; } = null!;
+
+    public virtual DbSet<Empresa> Empresas { get; set; } = null!;
+
     public virtual DbSet<Usuario> Usuarios { get; set; } = null!;
 
     public virtual DbSet<Aplicacao> Aplicacoes { get; set; } = null!;
@@ -24,6 +28,53 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Area>(entity =>
+        {
+            entity.ToTable("Areas", "Global");
+
+            entity.HasKey(e => e.AreaId);
+
+            entity.Property(e => e.AreaId)
+                .HasColumnName("AreaID")
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
+            entity.Property(e => e.Nome)
+                .HasColumnName("Area")
+                .HasMaxLength(200)
+                .IsUnicode(false);
+
+            entity.Property(e => e.Status)
+                .HasColumnName("Status")
+                .HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<Empresa>(entity =>
+        {
+            entity.ToTable("Empresas", "Global");
+
+            entity.HasKey(e => e.EmpresaId);
+
+            entity.Property(e => e.EmpresaId)
+                .HasColumnName("EmpresaID")
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
+            entity.Property(e => e.Nome)
+                .HasColumnName("Empresa")
+                .HasMaxLength(200)
+                .IsUnicode(false);
+
+            entity.Property(e => e.CodigoAlternativo)
+                .HasColumnName("CodigoAlternativo")
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
+            entity.Property(e => e.Status)
+                .HasColumnName("Status")
+                .HasDefaultValue(true);
+        });
+
         modelBuilder.Entity<Departamento>(entity =>
         {
             entity.ToTable("Departamentos", "Global");
@@ -40,9 +91,20 @@ public class AppDbContext : DbContext
                 .HasMaxLength(200)
                 .IsUnicode(false);
 
+            entity.Property(e => e.AreaId)
+                .HasColumnName("AreaID")
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
             entity.Property(e => e.Status)
                 .HasColumnName("Status")
                 .HasDefaultValue(true);
+
+            entity.HasOne(e => e.Area)
+                .WithMany(a => a.Departamentos)
+                .HasForeignKey(e => e.AreaId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_Departamentos_Areas");
         });
 
         modelBuilder.Entity<Aplicacao>(entity =>
@@ -139,6 +201,11 @@ public class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false);
 
+            entity.Property(e => e.EmpresaId)
+                .HasColumnName("EmpresaID")
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
             entity.Property(e => e.Status)
                 .HasColumnName("Status")
                 .HasDefaultValue(true);
@@ -152,6 +219,12 @@ public class AppDbContext : DbContext
                 .HasForeignKey(e => e.DepartamentoId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_Usuarios_Departamentos");
+
+            entity.HasOne(e => e.Empresa)
+                .WithMany(emp => emp.Usuarios)
+                .HasForeignKey(e => e.EmpresaId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_Usuarios_Empresas");
         });
 
         modelBuilder.Entity<UsuariosAplicacao>(entity =>

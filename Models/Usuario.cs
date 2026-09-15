@@ -12,11 +12,15 @@ public class Usuario
 
     public string DepartamentoId { get; set; } = null!;
 
+    public string EmpresaId { get; set; } = null!;
+
     public bool Status { get; set; }
 
     public bool IsAdmin { get; set; }
 
     public virtual Departamento Departamento { get; set; } = null!;
+
+    public virtual Empresa Empresa { get; set; } = null!;
 
     public virtual ICollection<UsuariosAplicacao> UsuariosAplicacoes { get; set; } = new List<UsuariosAplicacao>();
 }
