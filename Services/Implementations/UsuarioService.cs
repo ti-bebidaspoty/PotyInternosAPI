@@ -6,6 +6,8 @@ using PotyInternosAPI.DTOs.Usuarios;
 using PotyInternosAPI.Exceptions;
 using PotyInternosAPI.Models;
 using PotyInternosAPI.Services.Interfaces;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PotyInternosAPI.Services.Implementations;
 
@@ -133,7 +135,10 @@ public class UsuarioService : IUsuarioService
             IsAdmin = dto.IsAdmin
         };
 
-        entity.Senha = _passwordHasher.HashPassword(entity, dto.Senha);
+        var bytesSenha = Encoding.UTF8.GetBytes(dto.Senha);
+        var hashBytes = SHA256.HashData(bytesSenha);
+        entity.Senha = Convert.ToHexString(hashBytes);
+
 
         await _context.Usuarios.AddAsync(entity);
         await _context.SaveChangesAsync();
@@ -192,7 +197,9 @@ public class UsuarioService : IUsuarioService
 
         if (!string.IsNullOrWhiteSpace(dto.Senha))
         {
-            entity.Senha = _passwordHasher.HashPassword(entity, dto.Senha);
+            var bytesSenha = Encoding.UTF8.GetBytes(dto.Senha);
+            var hashBytes = SHA256.HashData(bytesSenha);
+            entity.Senha = Convert.ToHexString(hashBytes);
         }
 
         await _context.SaveChangesAsync();
@@ -215,8 +222,9 @@ public class UsuarioService : IUsuarioService
     {
         var entity = await _context.Usuarios.FirstOrDefaultAsync(u => u.UsuarioId == id)
             ?? throw new NotFoundException($"Usuário '{id}' não encontrado.");
-
-        entity.Senha = _passwordHasher.HashPassword(entity, dto.Senha);
+        var bytesSenha = Encoding.UTF8.GetBytes(dto.Senha);
+        var hashBytes = SHA256.HashData(bytesSenha);
+        entity.Senha = Convert.ToHexString(hashBytes);
         await _context.SaveChangesAsync();
     }
 
