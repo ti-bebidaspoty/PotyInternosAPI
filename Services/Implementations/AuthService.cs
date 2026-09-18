@@ -1,6 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -9,6 +6,10 @@ using PotyInternosAPI.DTOs.Auth;
 using PotyInternosAPI.Exceptions;
 using PotyInternosAPI.Models;
 using PotyInternosAPI.Services.Interfaces;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PotyInternosAPI.Services.Implementations;
 
@@ -37,9 +38,11 @@ public class AuthService : IAuthService
         {
             throw new UnauthorizedException("Usuário ou senha inválidos.");
         }
-
-        var verification = _passwordHasher.VerifyHashedPassword(usuario, usuario.Senha, dto.Senha);
-        if (verification == PasswordVerificationResult.Failed)
+        var bytesSenha = Encoding.UTF8.GetBytes(dto.Senha);
+        var hashBytes = SHA256.HashData(bytesSenha);
+        var senha = Convert.ToHexString(hashBytes);
+        var verification = usuario.Senha != senha;
+        if (verification)
         {
             throw new UnauthorizedException("Usuário ou senha inválidos.");
         }
