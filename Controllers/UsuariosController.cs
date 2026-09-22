@@ -20,9 +20,9 @@ public class UsuariosController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<UsuarioResponseDto>>> GetAll([FromQuery] bool includeInactive = false)
+    public async Task<ActionResult<UsuarioPageDto>> GetAll([FromQuery] UsuarioQueryDto query)
     {
-        var result = await _service.GetAllAsync(includeInactive);
+        var result = await _service.GetAllAsync(query);
         return Ok(result);
     }
 

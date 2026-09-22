@@ -22,7 +22,7 @@ public class UsuarioService : IUsuarioService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<IEnumerable<UsuarioResponseDto>> GetAllAsync(bool includeInactive = false)
+    public async Task<UsuarioPageDto> GetAllAsync(UsuarioQueryDto options)
     {
         var query = _context.Usuarios
             .AsNoTracking()
@@ -30,12 +30,36 @@ public class UsuarioService : IUsuarioService
             .Include(u => u.Empresa)
             .AsQueryable();
 
-        if (!includeInactive)
+        if (!options.IncludeInactive)
         {
             query = query.Where(u => u.Status);
         }
 
-        return await query
+        if (!string.IsNullOrWhiteSpace(options.Search))
+        {
+            var search = options.Search.Trim();
+            query = query.Where(u => u.Nome.Contains(search)
+                || u.NomeUsuario.Contains(search) || u.Departamento.Nome.Contains(search));
+        }
+
+        var totalCount = await query.CountAsync();
+        var page = Math.Min(options.Page, Math.Max(1, (int)Math.Ceiling((double)totalCount / options.PageSize)));
+        var ordered = (options.SortBy, options.Descending) switch
+        {
+            ("usuario", false) => query.OrderBy(u => u.NomeUsuario),
+            ("usuario", true) => query.OrderByDescending(u => u.NomeUsuario),
+            ("departamento", false) => query.OrderBy(u => u.Departamento.Nome),
+            ("departamento", true) => query.OrderByDescending(u => u.Departamento.Nome),
+            ("perfil", false) => query.OrderByDescending(u => u.IsAdmin),
+            ("perfil", true) => query.OrderBy(u => u.IsAdmin),
+            ("status", false) => query.OrderByDescending(u => u.Status),
+            ("status", true) => query.OrderBy(u => u.Status),
+            (_, true) => query.OrderByDescending(u => u.Nome),
+            _ => query.OrderBy(u => u.Nome)
+        };
+        var items = await ordered.ThenBy(u => u.UsuarioId)
+            .Skip((page - 1) * options.PageSize)
+            .Take(options.PageSize)
             .Select(u => new UsuarioResponseDto
             {
                 UsuarioId = u.UsuarioId,
@@ -49,6 +73,7 @@ public class UsuarioService : IUsuarioService
                 IsAdmin = u.IsAdmin
             })
             .ToListAsync();
+        return new UsuarioPageDto { Items = items, Page = page, PageSize = options.PageSize, TotalCount = totalCount };
     }
 
     public async Task<UsuarioResponseDto?> GetByIdAsync(string id)

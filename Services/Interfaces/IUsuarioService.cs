@@ -5,7 +5,7 @@ namespace PotyInternosAPI.Services.Interfaces;
 
 public interface IUsuarioService
 {
-    Task<IEnumerable<UsuarioResponseDto>> GetAllAsync(bool includeInactive = false);
+    Task<UsuarioPageDto> GetAllAsync(UsuarioQueryDto options);
     Task<UsuarioResponseDto?> GetByIdAsync(string id);
     Task<UsuarioResponseDto> CreateAsync(UsuarioCreateDto dto);
     Task<UsuarioResponseDto> UpdateAsync(string id, UsuarioUpdateDto dto);

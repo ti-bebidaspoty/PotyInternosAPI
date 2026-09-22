@@ -9,6 +9,7 @@ public class Departamento
     public string AreaId { get; set; } = null!;
 
     public bool Status { get; set; }
+    public int? CodigoAlternativo { get; set; } = 0;
 
     public virtual Area Area { get; set; } = null!;
 

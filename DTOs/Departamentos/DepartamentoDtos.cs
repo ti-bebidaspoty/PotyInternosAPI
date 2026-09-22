@@ -9,6 +9,8 @@ public class DepartamentoResponseDto
     public string AreaId { get; set; } = null!;
     public string? Area { get; set; }
     public bool Status { get; set; }
+    public int? CodigoAlternativo { get; set; } = 0;
+
 }
 
 public class DepartamentoCreateDto

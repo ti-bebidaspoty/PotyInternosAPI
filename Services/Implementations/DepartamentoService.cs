@@ -35,7 +35,8 @@ public class DepartamentoService : IDepartamentoService
                 Departamento = d.Nome,
                 AreaId = d.AreaId,
                 Area = d.Area.Nome,
-                Status = d.Status
+                Status = d.Status,
+                CodigoAlternativo = d.CodigoAlternativo
             })
             .ToListAsync();
     }
@@ -51,7 +52,8 @@ public class DepartamentoService : IDepartamentoService
                 Departamento = d.Nome,
                 AreaId = d.AreaId,
                 Area = d.Area.Nome,
-                Status = d.Status
+                Status = d.Status,
+                CodigoAlternativo = d.CodigoAlternativo
             })
             .FirstOrDefaultAsync();
     }
