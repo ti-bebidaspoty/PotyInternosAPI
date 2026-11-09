@@ -10,6 +10,8 @@ public sealed class PublicarVersaoDto
     public bool Ios { get; set; } = true;
     public IFormFile? Apk { get; set; }
     public IFormFile? Ipa { get; set; }
+    [MaxLength(2048)] public string? AndroidExternalUrl { get; set; }
+    [MaxLength(2048)] public string? IosExternalUrl { get; set; }
     [MaxLength(200)] public string? IosBundleId { get; set; }
     public int? AndroidVersionCode { get; set; }
     [MaxLength(100)] public string? IosBuildNumber { get; set; }
@@ -27,6 +29,8 @@ public sealed class AplicacaoVersaoDto
     public string? IosBundleId { get; set; }
     public int? AndroidVersionCode { get; set; }
     public string? IosBuildNumber { get; set; }
+    public string? AndroidExternalUrl { get; set; }
+    public string? IosExternalUrl { get; set; }
 }
 
 public sealed class AplicacaoAtualDto
@@ -43,6 +47,8 @@ public sealed class AplicacaoAtualDto
     public string? AndroidUrl { get; set; }
     public string? IosUrl { get; set; }
     public string? IosManifestUrl { get; set; }
+    public string? AndroidDistributionType { get; set; }
+    public string? IosDistributionType { get; set; }
     public int? AndroidVersionCode { get; set; }
     public string? IosBuildNumber { get; set; }
 }

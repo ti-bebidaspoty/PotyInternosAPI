@@ -145,6 +145,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.DataPublicacao).HasColumnType("datetime2(3)");
             entity.Property(e => e.ApkArquivo).HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.IpaArquivo).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.AndroidExternalUrl).HasMaxLength(2048).IsUnicode(false);
+            entity.Property(e => e.IosExternalUrl).HasMaxLength(2048).IsUnicode(false);
             entity.Property(e => e.IosBundleId).HasMaxLength(200).IsUnicode(false);
             entity.Property(e => e.IosBuildNumber).HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.ApkSha256).HasMaxLength(64).IsUnicode(false);

@@ -49,23 +49,23 @@ public sealed class AplicacaoVersaoService
 
         Directory.CreateDirectory(_storageRoot);
         var id = Guid.NewGuid().ToString("N");
-        var staged = new List<string>();
+        var staged = new List<(string Temp, string Name)>();
         var final = new List<string>();
         try
         {
             string? apkName = null, ipaName = null, apkHash = null, ipaHash = null;
-            if (input.Android)
+            if (input.Apk is not null)
             {
                 apkName = id + ".apk";
-                (var temp, apkHash) = await StageAsync(input.Apk!, cancellationToken);
-                staged.Add(temp);
+                (var temp, apkHash) = await StageAsync(input.Apk, cancellationToken);
+                staged.Add((temp, apkName));
                 ValidateArchive(temp, false);
             }
-            if (input.Ios)
+            if (input.Ipa is not null)
             {
                 ipaName = id + ".ipa";
-                (var temp, ipaHash) = await StageAsync(input.Ipa!, cancellationToken);
-                staged.Add(temp);
+                (var temp, ipaHash) = await StageAsync(input.Ipa, cancellationToken);
+                staged.Add((temp, ipaName));
                 ValidateArchive(temp, true);
             }
 
@@ -73,10 +73,10 @@ public sealed class AplicacaoVersaoService
             if (await _db.AplicacoesVersoes.AnyAsync(v => v.AplicacaoId == applicationId && v.Versao == input.Versao.Trim(), cancellationToken))
                 throw new ConflictException("Já existe uma publicação com esta versão para a aplicação.");
 
-            for (var i = 0; i < staged.Count; i++)
+            foreach (var file in staged)
             {
-                var target = Path.Combine(_storageRoot, input.Android && i == 0 ? apkName! : ipaName!);
-                File.Move(staged[i], target);
+                var target = Path.Combine(_storageRoot, file.Name);
+                File.Move(file.Temp, target);
                 final.Add(target);
             }
             staged.Clear();
@@ -97,9 +97,11 @@ public sealed class AplicacaoVersaoService
                 Ativa = true,
                 ApkArquivo = apkName,
                 IpaArquivo = ipaName,
+                AndroidExternalUrl = input.Android ? input.AndroidExternalUrl?.Trim() : null,
+                IosExternalUrl = input.Ios ? input.IosExternalUrl?.Trim() : null,
                 ApkSha256 = apkHash,
                 IpaSha256 = ipaHash,
-                IosBundleId = input.Ios ? input.IosBundleId!.Trim() : null,
+                IosBundleId = input.Ipa is not null ? input.IosBundleId!.Trim() : null,
                 AndroidVersionCode = input.Android ? input.AndroidVersionCode : null,
                 IosBuildNumber = input.Ios ? input.IosBuildNumber!.Trim() : null
             };
@@ -110,7 +112,7 @@ public sealed class AplicacaoVersaoService
         }
         catch
         {
-            foreach (var path in staged.Concat(final)) if (File.Exists(path)) File.Delete(path);
+            foreach (var path in staged.Select(file => file.Temp).Concat(final)) if (File.Exists(path)) File.Delete(path);
             throw;
         }
     }
@@ -122,8 +124,8 @@ public sealed class AplicacaoVersaoService
             ?? throw new NotFoundException("Versão não encontrada.");
         if (!await _db.Aplicacoes.AnyAsync(a => a.AplicacaoId == applicationId && a.Status, cancellationToken))
             throw new ValidationException("A aplicação está inativa.");
-        if (target.Android && !File.Exists(ResolveFile(target.ApkArquivo!)) ||
-            target.Ios && !File.Exists(ResolveFile(target.IpaArquivo!)))
+        if (target.ApkArquivo is not null && !File.Exists(ResolveFile(target.ApkArquivo)) ||
+            target.IpaArquivo is not null && !File.Exists(ResolveFile(target.IpaArquivo)))
             throw new ConflictException("Os arquivos desta versão não estão disponíveis no servidor.");
         if (!target.Ativa)
         {
@@ -180,21 +182,38 @@ public sealed class AplicacaoVersaoService
         if (string.IsNullOrWhiteSpace(input.Descricao) || input.Descricao.Trim().Length > 2000)
             throw new ValidationException("Informe a descrição (até 2000 caracteres).");
         if (!input.Android && !input.Ios) throw new ValidationException("Selecione Android, iOS ou ambos.");
-        if (input.Android != (input.Apk is not null) || input.Ios != (input.Ipa is not null))
-            throw new ValidationException("Envie um APK para Android e um IPA para iOS, apenas para as plataformas selecionadas.");
+        var androidLink = !string.IsNullOrWhiteSpace(input.AndroidExternalUrl);
+        var iosLink = !string.IsNullOrWhiteSpace(input.IosExternalUrl);
+        if (input.Android ? (input.Apk is not null) == androidLink : input.Apk is not null || androidLink)
+            throw new ValidationException("Para Android, escolha apenas um APK ou um link HTTPS.");
+        if (input.Ios ? (input.Ipa is not null) == iosLink : input.Ipa is not null || iosLink)
+            throw new ValidationException("Para iOS, escolha apenas um IPA ou um link HTTPS.");
+        if (androidLink) ValidateExternalUrl(input.AndroidExternalUrl!, "Android");
+        if (iosLink) ValidateExternalUrl(input.IosExternalUrl!, "iOS");
         if (input.Android && (input.AndroidVersionCode is null or <= 0))
             throw new ValidationException("Informe o versionCode positivo do APK Android.");
-        if (input.Ios && (string.IsNullOrWhiteSpace(input.IosBundleId) || !Regex.IsMatch(input.IosBundleId, "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$") ||
-            string.IsNullOrWhiteSpace(input.IosBuildNumber) || !Regex.IsMatch(input.IosBuildNumber, "^[0-9]+(\\.[0-9]+){0,2}$")))
-            throw new ValidationException("Informe o bundle ID e o número de build do IPA iOS.");
+        if (input.Ios && (string.IsNullOrWhiteSpace(input.IosBuildNumber) ||
+            !Regex.IsMatch(input.IosBuildNumber, "^[0-9]+(\\.[0-9]+){0,2}$")))
+            throw new ValidationException("Informe o número de build iOS.");
+        if (input.Ipa is not null && (string.IsNullOrWhiteSpace(input.IosBundleId) ||
+            !Regex.IsMatch(input.IosBundleId, "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$")) ||
+            input.Ipa is null && !string.IsNullOrWhiteSpace(input.IosBundleId))
+            throw new ValidationException("Informe o bundle ID apenas para IPA iOS.");
         foreach (var file in new[] { input.Apk, input.Ipa }.Where(f => f is not null))
         {
             if (file!.Length is <= 0 or > MaxFileBytes)
                 throw new ValidationException("O arquivo deve ter entre 1 byte e 1 GB.");
         }
-        if (input.Android && !string.Equals(Path.GetExtension(input.Apk!.FileName), ".apk", StringComparison.OrdinalIgnoreCase) ||
-            input.Ios && !string.Equals(Path.GetExtension(input.Ipa!.FileName), ".ipa", StringComparison.OrdinalIgnoreCase))
+        if (input.Apk is not null && !string.Equals(Path.GetExtension(input.Apk.FileName), ".apk", StringComparison.OrdinalIgnoreCase) ||
+            input.Ipa is not null && !string.Equals(Path.GetExtension(input.Ipa.FileName), ".ipa", StringComparison.OrdinalIgnoreCase))
             throw new ValidationException("Use arquivos .apk e .ipa para as respectivas plataformas.");
+    }
+
+    private static void ValidateExternalUrl(string value, string platform)
+    {
+        if (value.Trim().Length > 2048 || !Uri.TryCreate(value.Trim(), UriKind.Absolute, out var url) ||
+            url.Scheme != Uri.UriSchemeHttps || string.IsNullOrWhiteSpace(url.Host) || !string.IsNullOrEmpty(url.UserInfo))
+            throw new ValidationException($"Informe um link HTTPS válido para {platform}.");
     }
 
     private async Task<(string Path, string Sha256)> StageAsync(IFormFile file, CancellationToken cancellationToken)
@@ -239,6 +258,7 @@ public sealed class AplicacaoVersaoService
         VersaoId = v.VersaoId, Versao = v.Versao, Descricao = v.Descricao,
         DataPublicacao = DateTime.SpecifyKind(v.DataPublicacao, DateTimeKind.Utc), Android = v.Android, Ios = v.Ios,
         Ativa = v.Ativa, IosBundleId = v.IosBundleId,
-        AndroidVersionCode = v.AndroidVersionCode, IosBuildNumber = v.IosBuildNumber
+        AndroidVersionCode = v.AndroidVersionCode, IosBuildNumber = v.IosBuildNumber,
+        AndroidExternalUrl = v.AndroidExternalUrl, IosExternalUrl = v.IosExternalUrl
     };
 }

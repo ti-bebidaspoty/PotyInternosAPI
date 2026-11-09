@@ -12,6 +12,8 @@ public class AplicacaoVersao
     public bool Ativa { get; set; }
     public string? ApkArquivo { get; set; }
     public string? IpaArquivo { get; set; }
+    public string? AndroidExternalUrl { get; set; }
+    public string? IosExternalUrl { get; set; }
     public string? IosBundleId { get; set; }
     public int? AndroidVersionCode { get; set; }
     public string? IosBuildNumber { get; set; }

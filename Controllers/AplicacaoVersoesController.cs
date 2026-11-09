@@ -52,8 +52,8 @@ public sealed class PublicAppsController : ControllerBase
     public async Task<ActionResult<AplicacaoAtualDto>> Current(string appId, CancellationToken cancellationToken)
     {
         var (application, version) = await _service.CurrentAsync(appId, cancellationToken);
-        var androidUrl = version.Android ? Absolute($"api/apps/{application.AplicacaoId}/download/android") : null;
-        var manifestUrl = version.Ios ? Absolute($"api/apps/{application.AplicacaoId}/versions/{version.VersaoId}/manifest.plist") : null;
+        var androidUrl = version.Android ? version.AndroidExternalUrl ?? Absolute($"api/apps/{application.AplicacaoId}/download/android") : null;
+        var manifestUrl = version.IpaArquivo is not null ? Absolute($"api/apps/{application.AplicacaoId}/versions/{version.VersaoId}/manifest.plist") : null;
         return Ok(new AplicacaoAtualDto
         {
             AplicacaoId = application.AplicacaoId,
@@ -69,7 +69,9 @@ public sealed class PublicAppsController : ControllerBase
             IosBuildNumber = version.IosBuildNumber,
             AndroidUrl = androidUrl,
             IosManifestUrl = manifestUrl,
-            IosUrl = manifestUrl is null ? null : "itms-services://?action=download-manifest&url=" + Uri.EscapeDataString(manifestUrl)
+            IosUrl = version.IosExternalUrl ?? (manifestUrl is null ? null : "itms-services://?action=download-manifest&url=" + Uri.EscapeDataString(manifestUrl)),
+            AndroidDistributionType = version.Android ? version.AndroidExternalUrl is null ? "apk" : "link" : null,
+            IosDistributionType = version.Ios ? version.IosExternalUrl is null ? "ipa" : "link" : null
         });
     }
 
@@ -79,6 +81,7 @@ public sealed class PublicAppsController : ControllerBase
     {
         var (_, version) = await _service.CurrentAsync(appId, cancellationToken);
         if (!version.Android) throw new NotFoundException("Android não está disponível nesta versão.");
+        if (version.AndroidExternalUrl is not null) return Redirect(version.AndroidExternalUrl);
         var path = _service.ResolveFile(version.ApkArquivo!);
         if (!System.IO.File.Exists(path)) throw new NotFoundException("APK indisponível no servidor.");
         Response.Headers.CacheControl = "no-store";
@@ -91,6 +94,7 @@ public sealed class PublicAppsController : ControllerBase
     {
         var (application, version) = await _service.CurrentAsync(appId, cancellationToken);
         if (!version.Ios) throw new NotFoundException("iOS não está disponível nesta versão.");
+        if (version.IosExternalUrl is not null) return Redirect(version.IosExternalUrl);
         var manifestUrl = Absolute($"api/apps/{application.AplicacaoId}/versions/{version.VersaoId}/manifest.plist");
         return Redirect("itms-services://?action=download-manifest&url=" + Uri.EscapeDataString(manifestUrl));
     }
@@ -100,7 +104,7 @@ public sealed class PublicAppsController : ControllerBase
     public async Task<IActionResult> Manifest(string appId, string versionId, CancellationToken cancellationToken)
     {
         var (application, version) = await _service.ByIdAsync(appId, versionId, cancellationToken);
-        if (!version.Ios) throw new NotFoundException("iOS não está disponível nesta versão.");
+        if (!version.Ios || version.IpaArquivo is null) throw new NotFoundException("IPA não está disponível nesta versão.");
         var ipa = Absolute($"api/apps/{application.AplicacaoId}/versions/{version.VersaoId}/app.ipa");
         if (!ipa.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             throw new ValidationException("Instalação iOS exige Distribution:PublicBaseUrl HTTPS.");
@@ -125,7 +129,7 @@ public sealed class PublicAppsController : ControllerBase
     public async Task<IActionResult> Ipa(string appId, string versionId, CancellationToken cancellationToken)
     {
         var (_, version) = await _service.ByIdAsync(appId, versionId, cancellationToken);
-        if (!version.Ios) throw new NotFoundException("iOS não está disponível nesta versão.");
+        if (!version.Ios || version.IpaArquivo is null) throw new NotFoundException("IPA não está disponível nesta versão.");
         var path = _service.ResolveFile(version.IpaArquivo!);
         if (!System.IO.File.Exists(path)) throw new NotFoundException("IPA indisponível no servidor.");
         Response.Headers.CacheControl = "no-store";
