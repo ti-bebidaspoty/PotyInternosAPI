@@ -6,6 +6,9 @@ public class AplicacaoResponseDto
 {
     public string AplicacaoId { get; set; } = null!;
     public string Aplicacao { get; set; } = null!;
+    public string Slug { get; set; } = null!;
+    public string? VersaoAtual { get; set; }
+    public string? VersaoAtualId { get; set; }
     public bool Status { get; set; }
     public List<AplicacaoCampoAdicionalResponseDto> CamposAdicionais { get; set; } = new();
     public List<AplicacaoCampoAdicionalValorDto> ValoresCamposAdicionais { get; set; } = new();

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PotyInternosAPI.Data;
@@ -40,6 +41,9 @@ public class AplicacaoService : IAplicacaoService
             {
                 AplicacaoId = a.AplicacaoId,
                 Aplicacao = a.Nome,
+                Slug = a.Slug,
+                VersaoAtual = a.Versoes.Where(v => v.Ativa).Select(v => v.Versao).FirstOrDefault(),
+                VersaoAtualId = a.Versoes.Where(v => v.Ativa).Select(v => v.VersaoId).FirstOrDefault(),
                 Status = a.Status,
                 CamposAdicionais = a.CamposAdicionais
                     .OrderBy(c => c.Ordem)
@@ -64,6 +68,9 @@ public class AplicacaoService : IAplicacaoService
             {
                 AplicacaoId = a.AplicacaoId,
                 Aplicacao = a.Nome,
+                Slug = a.Slug,
+                VersaoAtual = a.Versoes.Where(v => v.Ativa).Select(v => v.Versao).FirstOrDefault(),
+                VersaoAtualId = a.Versoes.Where(v => v.Ativa).Select(v => v.VersaoId).FirstOrDefault(),
                 Status = a.Status,
                 CamposAdicionais = a.CamposAdicionais
                     .OrderBy(c => c.Ordem)
@@ -93,17 +100,21 @@ public class AplicacaoService : IAplicacaoService
         {
             AplicacaoId = Guid.NewGuid().ToString(),
             Nome = dto.Aplicacao,
+            Slug = GerarSlug(dto.Aplicacao),
             Status = true,
             CamposAdicionais = MontarCampos(dto.CamposAdicionais)
         };
 
         await _context.Aplicacoes.AddAsync(entity);
+        if (await _context.Aplicacoes.AnyAsync(a => a.Slug == entity.Slug))
+            throw new ConflictException($"O endereço '{entity.Slug}' já está em uso por outra aplicação.");
         await _context.SaveChangesAsync();
 
         return new AplicacaoResponseDto
         {
             AplicacaoId = entity.AplicacaoId,
             Aplicacao = entity.Nome,
+            Slug = entity.Slug,
             Status = entity.Status,
             CamposAdicionais = entity.CamposAdicionais
                 .OrderBy(c => c.Ordem)
@@ -143,6 +154,9 @@ public class AplicacaoService : IAplicacaoService
         {
             AplicacaoId = entity.AplicacaoId,
             Aplicacao = entity.Nome,
+            Slug = entity.Slug,
+            VersaoAtual = await _context.AplicacoesVersoes.Where(v => v.AplicacaoId == id && v.Ativa).Select(v => v.Versao).FirstOrDefaultAsync(),
+            VersaoAtualId = await _context.AplicacoesVersoes.Where(v => v.AplicacaoId == id && v.Ativa).Select(v => v.VersaoId).FirstOrDefaultAsync(),
             Status = entity.Status,
             CamposAdicionais = entity.CamposAdicionais
                 .OrderBy(c => c.Ordem)
@@ -177,6 +191,21 @@ public class AplicacaoService : IAplicacaoService
             "float" => "Float",
             _ => throw new ValidationException($"Tipo de campo adicional '{tipo}' inválido. Use Int, String, Bool ou Float.")
         };
+    }
+
+    private static string GerarSlug(string nome)
+    {
+        var normalized = nome.Trim().Normalize(NormalizationForm.FormD);
+        var slug = new StringBuilder();
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark) continue;
+            var lower = char.ToLowerInvariant(character);
+            if (lower is >= 'a' and <= 'z' or >= '0' and <= '9') slug.Append(lower);
+        }
+        if (slug.Length == 0 || slug.Length > 200)
+            throw new ValidationException("O nome da aplicação deve gerar um endereço de até 200 caracteres.");
+        return slug.ToString();
     }
 
     public static string ValorPadrao(string tipo)

@@ -6,9 +6,13 @@ public class Aplicacao
 
     public string Nome { get; set; } = null!;
 
+    public string Slug { get; set; } = null!;
+
     public bool Status { get; set; }
 
     public virtual ICollection<AplicacaoCampoAdicional> CamposAdicionais { get; set; } = new List<AplicacaoCampoAdicional>();
 
     public virtual ICollection<UsuariosAplicacao> UsuariosAplicacoes { get; set; } = new List<UsuariosAplicacao>();
+
+    public virtual ICollection<AplicacaoVersao> Versoes { get; set; } = new List<AplicacaoVersao>();
 }

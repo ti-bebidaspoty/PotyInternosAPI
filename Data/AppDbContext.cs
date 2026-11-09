@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
 
     public virtual DbSet<Aplicacao> Aplicacoes { get; set; } = null!;
 
+    public virtual DbSet<AplicacaoVersao> AplicacoesVersoes { get; set; } = null!;
+
     public virtual DbSet<AplicacaoCampoAdicional> AplicacoesCamposAdicionais { get; set; } = null!;
 
     public virtual DbSet<UsuariosAplicacao> UsuariosAplicacoes { get; set; } = null!;
@@ -123,9 +125,34 @@ public class AppDbContext : DbContext
                 .HasMaxLength(200)
                 .IsUnicode(false);
 
+            entity.Property(e => e.Slug).HasMaxLength(200).IsUnicode(false);
+
+            entity.HasIndex(e => e.Slug).IsUnique().HasDatabaseName("UX_Aplicacoes_Slug");
+
             entity.Property(e => e.Status)
                 .HasColumnName("Status")
                 .HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<AplicacaoVersao>(entity =>
+        {
+            entity.ToTable("AplicacoesVersoes", "Global");
+            entity.HasKey(e => e.VersaoId);
+            entity.Property(e => e.VersaoId).HasColumnName("VersaoID").HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.AplicacaoId).HasColumnName("AplicacaoID").HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.Versao).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.Descricao).HasMaxLength(2000);
+            entity.Property(e => e.DataPublicacao).HasColumnType("datetime2(3)");
+            entity.Property(e => e.ApkArquivo).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.IpaArquivo).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.IosBundleId).HasMaxLength(200).IsUnicode(false);
+            entity.Property(e => e.IosBuildNumber).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.ApkSha256).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.IpaSha256).HasMaxLength(64).IsUnicode(false);
+            entity.HasOne(e => e.Aplicacao).WithMany(a => a.Versoes)
+                .HasForeignKey(e => e.AplicacaoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.AplicacaoId, e.Versao }).IsUnique();
+            entity.HasIndex(e => e.AplicacaoId).IsUnique().HasFilter("[Ativa] = 1");
         });
 
         modelBuilder.Entity<AplicacaoCampoAdicional>(entity =>
